@@ -322,9 +322,25 @@ function buildGrid(gridEl,items){
   });
 }
 
+function getYoutubeId(url){
+  if(!url) return null;
+  var match=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
+  return match?match[1]:null;
+}
+
 function openModal(a){
   var cover=document.getElementById('modalCover');
-  if(a.cover&&a.coverType&&a.coverType.indexOf('video')===0){
+  var ytId=getYoutubeId(a.youtubeUrl);
+  if(ytId){
+    var thumb='https://img.youtube.com/vi/'+ytId+'/hqdefault.jpg';
+    cover.innerHTML=
+      '<img src="'+thumb+'" alt="'+a.title+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;">'+
+      '<a href="'+a.youtubeUrl+'" target="_blank" rel="noopener" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-decoration:none;">'+
+        '<div style="width:64px;height:64px;background:rgba(255,0,0,.9);border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform .2s;" onmouseover="this.style.transform=\'scale(1.1)\'" onmouseout="this.style.transform=\'scale(1)\'">'+
+          '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><polygon points="8,5 19,12 8,19"/></svg>'+
+        '</div>'+
+      '</a>';
+  } else if(a.cover&&a.coverType&&a.coverType.indexOf('video')===0){
     cover.innerHTML='<video src="'+a.cover+'" controls autoplay muted playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;"></video>';
   } else if(a.cover){
     cover.innerHTML='<img src="'+a.cover+'" alt="'+a.title+'">';
@@ -340,6 +356,8 @@ function openModal(a){
 function closeModalDirect(){
   var v=document.querySelector('#modalCover video');
   if(v) v.pause();
+  var f=document.querySelector('#modalCover iframe');
+  if(f) f.src='';
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow='';
 }
@@ -359,7 +377,7 @@ async function loadPortfolio(){
   var gc=document.getElementById('gridCommercial');
   showSkeleton(gm); showSkeleton(gc);
   try{
-    var url='https://api.airtable.com/v0/'+AIRTABLE_BASE_ID+'/'+encodeURIComponent(AIRTABLE_TABLE);
+    var url='https://api.airtable.com/v0/'+AIRTABLE_BASE_ID+'/'+encodeURIComponent(AIRTABLE_TABLE)+'?sort%5B0%5D%5Bfield%5D=order&sort%5B0%5D%5Bdirection%5D=asc';
     var res=await fetch(url,{headers:{'Authorization':'Bearer '+AIRTABLE_TOKEN}});
     if(!res.ok) throw new Error('Airtable '+res.status);
     var data=await res.json();
@@ -370,7 +388,8 @@ async function loadPortfolio(){
         category:r.fields.category||'music',
         thumbnail:(r.fields.thumbnail&&r.fields.thumbnail[0])?r.fields.thumbnail[0].url:null,
         cover:(r.fields.cover&&r.fields.cover[0])?r.fields.cover[0].url:null,
-        coverType:(r.fields.cover&&r.fields.cover[0])?r.fields.cover[0].type:null
+        coverType:(r.fields.cover&&r.fields.cover[0])?r.fields.cover[0].type:null,
+        youtubeUrl:r.fields.youtubeUrl||null
       };
     });
     buildGrid(gm,items.filter(function(i){return i.category==='music';}));
@@ -392,7 +411,7 @@ async function submitForm(btn){
   var tracks=document.getElementById('fieldTracks').value.trim();
   var message=document.getElementById('fieldMessage').value.trim();
   if(!name||!email){
-    alert('이름과 이메일을 입력해주세요.');
+    alert('Please enter your name and email.');
     return;
   }
   btn.textContent='...'; btn.disabled=true;
@@ -409,7 +428,7 @@ async function submitForm(btn){
       });
     } else throw new Error('failed');
   } catch(e){
-    btn.textContent='오류가 발생했습니다. 다시 시도해주세요.';
+    btn.textContent='Error. Please try again.';
   }
 }
 </script>
